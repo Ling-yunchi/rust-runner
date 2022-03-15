@@ -19,12 +19,20 @@ fn main() {
     let mut res: Option<JudgeResult> = None;
 
     match pid {
-        Ok(ForkResult::Parent { child, .. }) => res = Some(runner::father_program(child, &config)),
-        Ok(ForkResult::Child) => {
-            runner::child_program(&config);
+        Ok(ForkResult::Parent { child, .. }) => {
+            res = Some(
+                runner::father_program(child, &config).unwrap_or_else(|err| {
+                    eprintln!("{}", err);
+                    std::process::exit(1);
+                }),
+            )
         }
+        Ok(ForkResult::Child) => runner::child_program(&config).unwrap_or_else(|err| {
+            eprintln!("{}", err);
+            std::process::exit(1);
+        }),
         Err(_) => {
-            println!("Fork failed");
+            eprintln!("Fork failed");
             std::process::exit(1);
         }
     }

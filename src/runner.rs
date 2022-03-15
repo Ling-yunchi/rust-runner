@@ -52,36 +52,45 @@ impl fmt::Display for RunResult {
     }
 }
 
-pub fn father_program(child_pid: Pid, config: &Config) -> JudgeResult {
+pub fn father_program(
+    child_pid: Pid,
+    config: &Config,
+) -> core::result::Result<JudgeResult, Box<dyn Error>> {
     return listen_child_process(child_pid, config);
 }
 
-pub fn child_program(config: &Config) {
-    set_child_limit(config);
-    let _ = run_child_program(config);
+pub fn child_program(config: &Config) -> core::result::Result<(), Box<dyn Error>> {
+    let _ = set_child_limit(config)?;
+    let _ = run_child_program(config)?;
+    Ok(())
 }
 
-fn run_child_program(config: &Config) -> Result<(), Box<dyn Error>> {
+fn run_child_program(config: &Config) -> core::result::Result<(), Box<dyn Error>> {
     let input_file = File::open(&config.input_path)?;
     let output_file = File::create(&config.output_path)?;
-    let _ = Command::new(&config.program_path)
+    let status = Command::new(&config.program_path)
         .stdin(Stdio::from(input_file))
         .stdout(Stdio::from(output_file))
-        .output()
-        .expect("failed to execute process");
+        .status()?;
+    if !status.success() {
+        return Err("Program exit with non-zero status".into());
+    }
     return Ok(());
 }
 
-fn listen_child_process(child_pid: Pid, config: &Config) -> JudgeResult {
+fn listen_child_process(
+    child_pid: Pid,
+    config: &Config,
+) -> core::result::Result<JudgeResult, Box<dyn Error>> {
     let memary_usage;
     let time_usage;
-    let mut run_result = RunResult::RunSuccess;
+    let mut run_result;
 
-    let res = pidrusage::<RUsageInfoV0>(child_pid.as_raw()).unwrap();
+    let res = pidrusage::<RUsageInfoV0>(child_pid.as_raw())?;
     memary_usage = res.memory_used();
     time_usage = res.ri_user_time;
 
-    match waitpid(child_pid, Some(WaitPidFlag::WUNTRACED)).unwrap() {
+    match waitpid(child_pid, Some(WaitPidFlag::WUNTRACED))? {
         nix::sys::wait::WaitStatus::Exited(_, _) => {
             run_result = RunResult::RunSuccess;
         }
@@ -91,33 +100,37 @@ fn listen_child_process(child_pid: Pid, config: &Config) -> JudgeResult {
             SIGXFSZ => run_result = RunResult::OutputLimitExceeded,
             _ => run_result = RunResult::RunTimeError,
         },
-        _ => {}
+        _ => {
+            return Err("Child process is not exited".into());
+        }
     }
 
     if memary_usage > config.memory_limit {
         run_result = RunResult::MemoryLimitExceeded;
     }
 
-    return JudgeResult {
+    Ok(JudgeResult {
         result: run_result,
         time: time_usage,
         memory: memary_usage,
-    };
+    })
 }
 
-fn set_child_limit(config: &Config) {
+fn set_child_limit(config: &Config) -> core::result::Result<(), Box<dyn Error>> {
     let time_limit = Some(config.time_limit as u64);
-    setrlimit(Resource::RLIMIT_CPU, time_limit, time_limit).unwrap();
+    setrlimit(Resource::RLIMIT_CPU, time_limit, time_limit)?;
 
     let memory_limit = Some(config.memory_limit as u64);
-    setrlimit(Resource::RLIMIT_AS, memory_limit, memory_limit).unwrap();
-    setrlimit(Resource::RLIMIT_STACK, memory_limit, memory_limit).unwrap();
+    setrlimit(Resource::RLIMIT_AS, memory_limit, memory_limit)?;
+    setrlimit(Resource::RLIMIT_STACK, memory_limit, memory_limit)?;
 
     let output_limit = Some(OUTPUT_LIMIT as u64);
-    setrlimit(Resource::RLIMIT_FSIZE, output_limit, output_limit).unwrap();
+    setrlimit(Resource::RLIMIT_FSIZE, output_limit, output_limit)?;
 
     let file_limit = Some(FILE_LIMIT as u64);
-    setrlimit(Resource::RLIMIT_NOFILE, file_limit, file_limit).unwrap();
+    setrlimit(Resource::RLIMIT_NOFILE, file_limit, file_limit)?;
 
-    setrlimit(Resource::RLIMIT_NPROC, None, None).unwrap();
+    setrlimit(Resource::RLIMIT_NPROC, None, None)?;
+
+    Ok(())
 }
