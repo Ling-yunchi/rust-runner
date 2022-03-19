@@ -43,11 +43,11 @@ pub enum RunResult {
 impl fmt::Display for RunResult {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            RunResult::RunSuccess => write!(f, "Run Success"),
-            RunResult::TimeLimitExceeded => write!(f, "Time Limit Exceeded"),
-            RunResult::MemoryLimitExceeded => write!(f, "Memory Limit Exceeded"),
-            RunResult::RunTimeError => write!(f, "Run Time Error"),
-            RunResult::OutputLimitExceeded => write!(f, "Output Limit Exceeded"),
+            RunResult::RunSuccess => write!(f, "RunSuccess"),
+            RunResult::TimeLimitExceeded => write!(f, "TimeLimitExceeded"),
+            RunResult::MemoryLimitExceeded => write!(f, "MemoryLimitExceeded"),
+            RunResult::RunTimeError => write!(f, "RunTimeError"),
+            RunResult::OutputLimitExceeded => write!(f, "OutputLimitExceeded"),
         }
     }
 }
@@ -133,4 +133,19 @@ fn set_child_limit(config: &Config) -> core::result::Result<(), Box<dyn Error>> 
     setrlimit(Resource::RLIMIT_NPROC, None, None)?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn out() {
+        let res = JudgeResult {
+            result: RunResult::RunSuccess,
+            time: 101,
+            memory: 100,
+        };
+        println!("{}", res);
+    }
 }
