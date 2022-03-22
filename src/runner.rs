@@ -18,7 +18,7 @@ use nix::{
 use crate::config::Config;
 
 const OUTPUT_LIMIT: usize = 1024 * 100;
-const FILE_LIMIT: usize = 2;
+const FILE_LIMIT: usize = 5;
 
 pub struct JudgeResult {
     result: RunResult,
@@ -130,7 +130,7 @@ fn set_child_limit(config: &Config) -> core::result::Result<(), Box<dyn Error>> 
     let file_limit = Some(FILE_LIMIT as u64);
     setrlimit(Resource::RLIMIT_NOFILE, file_limit, file_limit)?;
 
-    setrlimit(Resource::RLIMIT_NPROC, None, None)?;
+    setrlimit(Resource::RLIMIT_CORE, None, None)?;
 
     Ok(())
 }
